@@ -1,0 +1,344 @@
+---
+
+- name: Palo Alto Playbook
+  hosts: palo
+  gather_facts: false
+  connection: local
+
+  collections:
+    - paloaltonetworks.panos
+
+
+  vars:
+    palo_provider:
+      ip_address: '10.209.8.11'
+      username:
+      password: 
+
+    data_subnet_object_details:
+      - name: prod-data-sub-a
+        value: 1.1.1.1
+      - name: prod-data-sub-b
+        value: 2.2.2.2
+      - name: qa-data-sub-a
+        value: 3.3.3.3
+      - name: qa-data-sub-b
+        value: 4.4.4.4
+      - name: uat-data-sub-a
+        value: 5.5.5.5
+      - name: uat-date-sub-b
+        value: 6.6.6.6
+
+    ilb_subnet_object_details:
+      - name: prod-ilb-sub-a
+        value: 7.7.7.7
+      - name: prod-ilb-sub-b
+        value: 8.8.8.8
+      - name: qa-ilb-sub-a
+        value: 9.9.9.9
+      - name: qa-ilb-sub-b
+        value: 10.10.10.10
+      - name: uat-ilb-sub-a
+        value: 11.11.11.11
+      - name: uat-ilb-sub-b
+        value: 12.12.12.12
+
+    elb_subnet_object_details:
+      - name: prod-elb-sub-a
+        value: 13.13.13.13
+      - name: prod-elb-sub-b
+        value: 14.14.14.14
+      - name: qa-elb-sub-a
+        value: 15.15.15.15
+      - name: qa-elb-sub-b
+        value: 16.15.16.16
+      - name: uat-elb-sub-a
+        value: 17.17.17.17
+      - name: uat-elb-sub-b
+        value: 18.18.18.18
+    
+    client_jb_object_details: 19.19.19.19
+          
+    client_vpc_cidr: "20.20.20.20/32"
+    
+    rapid7-console: r7-console-10.196.6.52
+    
+    splunk_deployment_server: splunk-deployment-server.v3locity.com
+    
+    art-agent-subs: art-agents
+    
+    datastealth: datastealth.v3locity.com
+    
+    newrelic-minion: new-relic-minion.v3locity.com
+    
+    appscan: Appscan-jb
+
+    client_name: ansible
+    
+    tag_name: ANSIBLE
+
+    ticket_id: 1234
+
+    existing_rule: From splunk server to data subs newbury
+
+    device_group: client-firewalls
+
+  tasks:
+    - name: Create Client Data Subnet Address Objects
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-{{item.name}}'
+        value: '{{item.value}}'
+        device_group: '{{ device_group }}'
+      loop: "{{ data_subnet_object_details }}"
+
+    - name: Create Client ILB Subnet Address Objects
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-{{item.name}}'
+        value: '{{item.value}}'
+        device_group: '{{ device_group }}'
+      loop: "{{ ilb_subnet_object_details }}"
+
+    - name: Create Client ELB Subnet Address Objects
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-{{item.name}}'
+        value: '{{item.value}}'
+        device_group: '{{ device_group }}'
+      loop: "{{ elb_subnet_object_details }}"
+      
+    - name: Create Client JB Address Object
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-jb-{{ client_jb_object_details }}'
+        value: '{{ client_jb_object_details }}'
+        device_group: '{{ device_group }}'
+    
+    - name: Create Client VPC CIDR Address Object
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-vpc-cidr'
+        value: '{{ client_vpc_cidr }}'
+        device_group: '{{ device_group }}'
+        
+    - name: Create Client Rapid7 Scanner Address Object
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: 'r7-{{ client_name }}-scanner.v3locity.com'
+        value: 'r7-{{ client_name }}-scanner.v3locity.com'
+        address_type: 'fqdn'
+        device_group: '{{ device_group }}'
+      
+    - name: Create Client Data Subnet Address Object Group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-data-subs'
+        state: merged
+        static_value: ['{{ client_name }}-{{item.name}}']
+        device_group: '{{ device_group }}'
+      loop: "{{ data_subnet_object_details }}"
+
+    - name: Cerate Client ILB Subnet Address Object Group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-ilb-subs'
+        state: merged
+        static_value: ['{{ client_name }}-{{item.name}}']
+        device_group: '{{ device_group }}'
+      loop: "{{ ilb_subnet_object_details }}"
+
+    - name: Create Client ELB Subnet Address Object Group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-elb-subs'
+        state: merged
+        static_value: ['{{ client_name }}-{{item.name}}']
+        device_group: '{{ device_group }}'
+      loop: "{{ elb_subnet_object_details }}"
+      
+    - name: Create Client non prod data address object group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-non-prod-data-subs'
+        static_value: ['{{ client_name }}-qa-data-sub-a',''{{ client_name }}-qa-data-sub-b','{{ client_name }}-uat-data-sub-a','{{ client_name }}-uat-data-sub-b']
+        device_group: '{{ device_group }}'
+    
+    - name: Create Client non prod ilb elb address object group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-non-prod-ilb-elb-subs'
+        static_value: ['{{ client_name }}-qa-ilb-sub-a',''{{ client_name }}-qa-ilb-sub-b','{{ client_name }}-uat-ilb-sub-a','{{ client_name }}-uat-ilb-sub-b','{{ client_name }}-qa-elb-sub-a',''{{ client_name }}-qa-elb-sub-b','{{ client_name }}-uat-elb-sub-a','{{ client_name }}-uat-elb-sub-b']
+        device_group: '{{ device_group }}'
+            
+    - name: Create tag object 
+      panos_tag_object:
+        provider: '{{ provider }}'
+        name: '{{ tag_name }}'
+        color: 'red'
+        
+    - name: From mgmt jb to client vpc
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From jb to client subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ client_name }}-jb-{{item.value}}']
+        destination_ip: ['{{ client_name }}-vpc-cidr']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['mgmt-ports']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From rapid7 console to scanner
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From rapid7 console to scanner - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ rapid7-console }}']
+        destination_ip: ['r7-{{ client_name }}-scanner.v3locity.com']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-40814-3389']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From splunk_deployment_server
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From splunk_deployment_server - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ splunk_deployment_server }}']
+        destination_ip: ['{{ client_name }}-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-8089']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From art agent subs to non prod data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From art agent subs to non prod data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ art-agents }}']
+        destination_ip: ['{{ client_name }}-non-prod-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-5432']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From art agent subs to non prod ilb elb subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From art agent subs to non prod ilb elb subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ art-agents }}']
+        destination_ip: ['{{ client_name }}-non-prod-ilb-elb-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-5432']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From datastealth to data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From datastealth to data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ datastealth }}']
+        destination_ip: ['{{ client_name }}-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-5432']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From newrelic minion to client ilb subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From newrelic minion to client ilb subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ newrelic-minion }}']
+        destination_ip: ['{{ client_name }}-ilb-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From appscan jb to client data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From appscan jb to client data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ appscan }}']
+        destination_ip: ['{{ client_name }}-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+        
+    
+        
+    
+	
