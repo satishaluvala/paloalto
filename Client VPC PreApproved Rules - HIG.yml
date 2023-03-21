@@ -1,0 +1,628 @@
+---
+
+- name: Palo Alto Playbook
+  hosts: palo
+  gather_facts: false
+  connection: local
+
+  collections:
+    - paloaltonetworks.panos
+
+
+  vars:
+    palo_provider:
+      ip_address: '10.209.8.11'
+      username:
+      password:
+      
+    client_vpc_cidr: "10.203.0.0/19"
+    
+    data_subnet_object_details:
+      - name: prod-data-sub-a
+        value: 10.203.0.0/26
+      - name: prod-data-sub-b
+        value: 10.203.1.0/26
+      - name: qa-data-sub-a
+        value: 10.203.4.0/26
+      - name: qa-data-sub-b
+        value: 10.203.5.0/26
+      - name: uat-data-sub-a
+        value: 10.203.2.0/26
+      - name: uat-data-sub-b
+        value: 10.203.3.0/26
+
+    ilb_subnet_object_details:
+      - name: prod-ilb-sub-a
+        value: 10.203.0.64/26
+      - name: prod-ilb-sub-b
+        value: 10.203.1.64/26
+      - name: qa-ilb-sub-a
+        value: 10.203.4.64/26
+      - name: qa-ilb-sub-b
+        value: 10.203.5.64/26
+      - name: uat-ilb-sub-a
+        value: 10.203.2.64/26
+      - name: uat-ilb-sub-b
+        value: 10.203.3.64/26
+
+    elb_subnet_object_details:
+      - name: prod-elb-sub-a
+        value: 10.203.0.128/26
+      - name: prod-elb-sub-b
+        value: 10.203.1.128/26
+      - name: qa-elb-sub-a
+        value: 10.203.4.128/26
+      - name: qa-elb-sub-b
+        value: 10.203.5.128/26
+      - name: uat-elb-sub-a
+        value: 10.203.2.128/26
+      - name: uat-elb-sub-b
+        value: 10.203.3.128/26
+    
+    client_jb_object_details: 19.19.19.19   
+
+    ngss_data_subs: ngss-data-subs
+        
+    rapid7_console: r7-console-10.196.6.52
+    
+    splunk_deployment_server: splunk-deployment-server.v3locity.com
+    
+    splunk_heavy_forwarder: splunk-heavy-forwarder.v3locity.com
+    
+    art_agent_subs: art-agents
+    
+    datastealth: datastealth.v3locity.com
+    
+    newrelic_minion: new-relic-minion.v3locity.com
+    
+    appscan: Appscan-jb
+    
+    v3locity_mgmt_smtp: V3LO-MGMT-SMTP1.v3locity.com
+    
+    newrelic_proxy_forwarder: new-relic-proxy-forwarder.v3locity.com
+    
+    wafv2: wafv2.us-east-1.amazonaws.com
+
+    client_name: hig
+    
+    tag_name: HIG
+
+    ticket_id: VCS-30427
+
+    existing_rule: From splunk server to data subs newbury
+
+    device_group: client-firewalls
+
+  tasks:
+    - name: Create Client Data Subnet Address Objects
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-{{item.name}}'
+        value: '{{item.value}}'
+        device_group: '{{ device_group }}'
+      loop: "{{ data_subnet_object_details }}"
+
+    - name: Create Client ILB Subnet Address Objects
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-{{item.name}}'
+        value: '{{item.value}}'
+        device_group: '{{ device_group }}'
+      loop: "{{ ilb_subnet_object_details }}"
+
+    - name: Create Client ELB Subnet Address Objects
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-{{item.name}}'
+        value: '{{item.value}}'
+        device_group: '{{ device_group }}'
+      loop: "{{ elb_subnet_object_details }}"
+      
+    - name: Create Client JB Address Object
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-jb-{{ client_jb_object_details }}'
+        value: '{{ client_jb_object_details }}'
+        device_group: '{{ device_group }}'
+    
+    - name: Create Client VPC CIDR Address Object
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-vpc-cidr'
+        value: '{{ client_vpc_cidr }}'
+        device_group: '{{ device_group }}'
+        
+    - name: Create Client DBM EC2 Address Object
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-dbm.v3locity.com'
+        address_type: 'fqdn'
+        value: '{{ client_name }}-dbm.v3locity.com'
+        device_group: '{{ device_group }}'
+        
+    - name: Create Client Rapid7 Scanner Address Object
+      panos_address_object:
+        provider: '{{ palo_provider }}'
+        name: 'r7-{{ client_name }}-scanner.v3locity.com'
+        value: 'r7-{{ client_name }}-scanner.v3locity.com'
+        address_type: 'fqdn'
+        device_group: '{{ device_group }}'
+      
+    - name: Create Client Data Subnet Address Object Group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-data-subs'
+        state: merged
+        static_value: ['{{ client_name }}-{{item.name}}']
+        device_group: '{{ device_group }}'
+      loop: "{{ data_subnet_object_details }}"
+
+    - name: Cerate Client ILB Subnet Address Object Group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-ilb-subs'
+        state: merged
+        static_value: ['{{ client_name }}-{{item.name}}']
+        device_group: '{{ device_group }}'
+      loop: "{{ ilb_subnet_object_details }}"
+
+    - name: Create Client ELB Subnet Address Object Group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-elb-subs'
+        state: merged
+        static_value: ['{{ client_name }}-{{item.name}}']
+        device_group: '{{ device_group }}'
+      loop: "{{ elb_subnet_object_details }}"
+      
+    - name: Create Client non prod data address object group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-non-prod-data-subs'
+        static_value: ['{{ client_name }}-qa-data-sub-a','{{ client_name }}-qa-data-sub-b','{{ client_name }}-uat-data-sub-a','{{ client_name }}-uat-data-sub-b']
+        device_group: '{{ device_group }}'
+    
+    - name: Create Client non prod ilb elb address object group
+      panos_address_group:
+        provider: '{{ palo_provider }}'
+        name: '{{ client_name }}-non-prod-ilb-elb-subs'
+        static_value: ['{{ client_name }}-qa-ilb-sub-a','{{ client_name }}-qa-ilb-sub-b','{{ client_name }}-uat-ilb-sub-a','{{ client_name }}-uat-ilb-sub-b','{{ client_name }}-qa-elb-sub-a','{{ client_name }}-qa-elb-sub-b','{{ client_name }}-uat-elb-sub-a','{{ client_name }}-uat-elb-sub-b']
+        device_group: '{{ device_group }}'
+            
+    - name: Create tag object 
+      panos_tag_object:
+        provider: '{{ palo_provider }}'
+        name: '{{ tag_name }}'
+        color: 'red'
+        device_group: '{{ device_group }}'
+        
+    - name: From mgmt jb to client ilb elb subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From jb to client ilb elb subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ client_jb_object_details }}']
+        destination_ip: ['{{ client_name }}-ilb-subs','{{ client_name }}-elb-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From mgmt jb to client data subnets
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From jb to client data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ client_jb_object_details }}']
+        destination_ip: ['{{ client_name }}-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['mgmt-ports']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From ngss data subs to client ilb subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From ngss data subs to client ilb subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ ngss_data_subs }}']
+        destination_ip: ['{{ client_name }}-ilb-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From rapid7 console to scanner
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From rapid7 console to scanner - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ rapid7_console }}']
+        destination_ip: ['r7-{{ client_name }}-scanner.v3locity.com']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-40814-3389']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From splunk_deployment_server
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From splunk_deployment_server - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ splunk_deployment_server }}']
+        destination_ip: ['{{ client_name }}-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-8089']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From art agent subs to non prod data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From art agent subs to non prod data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ art_agent_subs }}']
+        destination_ip: ['{{ client_name }}-non-prod-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From art agent subs to non prod ilb elb subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From art agent subs to non prod ilb elb subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ art_agent_subs }}']
+        destination_ip: ['{{ client_name }}-non-prod-ilb-elb-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-5432']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From datastealth to data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From datastealth to data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ datastealth }}']
+        destination_ip: ['{{ client_name }}-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-5432']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From newrelic minion to client ilb subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From newrelic minion to client ilb subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ newrelic_minion }}']
+        destination_ip: ['{{ client_name }}-ilb-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: From appscan jb to client data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'From appscan jb to client data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ appscan }}']
+        destination_ip: ['{{ client_name }}-data-subs']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: To trendmicro
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To trendmicro - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['outside']
+        source_ip: ['{{ client_vpc_cidr }}']
+        destination_ip: ['any']
+        category: ['trendmicro.com']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['trendports']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'      
+          
+    - name: To shared service urls
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To shared service urls - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['outside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['any']
+        category: ['shared-services-urls']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: To v3locity.auth0.com from client data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To v3locity.auth0.com from client data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['outside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['v3locity.auth0.com']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: To v3locity mgmt smtp from client data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To v3locity mgmt smtp from client data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['{{ v3locity_mgmt_smtp }}']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-587']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: To newrelic proxy forwarder from client data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To newrelic proxy forwarder from client data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['{{ newrelic_proxy_forwarder }}']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-3428']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'
+        
+    - name: To rapid7 console from scanner
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To rapid7 console from scanner - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['r7-{{ client_name }}-scanner.v3locity.com']
+        destination_ip: ['{{ rapid7_console }}']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-40815']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'  
+
+    - name: To splunk deployment server
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To splunk deployment server - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['{{ splunk_deployment_server }}']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-8089']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'   
+
+    - name: To splunk heavy forwarder
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To splunk heavy forwarder - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['inside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['{{ splunk_heavy_forwarder }}']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-9997']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'  
+
+    - name: To vitech transfer family
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To vitech transfer family - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['outside']
+        source_ip: ['{{ client_name }}-dbm.v3locity.com']
+        destination_ip: ['sftp-sftpqa']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['tcp-22']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'  
+
+    - name: To wafv2 from data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To wafv2 from data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['outside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['{{ wafv2 }}']
+        category: ['any']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'   
+
+    - name: To lacework urls from data subs
+      panos_security_rule:
+        provider: '{{ palo_provider }}'
+        rule_name: 'To lacework urls from data subs - {{ client_name }}'
+        description: '{{ ticket_id }}'
+        source_zone: ['inside']
+        destination_zone: ['outside']
+        source_ip: ['{{ client_name }}-data-subs']
+        destination_ip: ['any']
+        category: ['lacework-urls']
+        tag_name: ['{{ tag_name }}']
+        group_tag: '{{ tag_name }}'
+        service: ['service-https']
+        action: 'allow'
+        group_profile: 'strict-security-profile'
+        log_start: 'yes'
+        location: 'before'
+        existing_rule: '{{ existing_rule }}'
+        log_setting: 'log-forwarding-panorama'
+        device_group: '{{ device_group }}'         
